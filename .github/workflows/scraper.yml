@@ -1,12 +1,9 @@
 name: Coletor de Preços Diário
 
-# Quando vai rodar?
 on:
   schedule:
-    # Cron expression: Roda a cada 6 horas (pode ajustar)
-    - cron: '0 */6 * * *'
-  # Permite rodar manualmente clicando num botão (bom para testes)
-  workflow_dispatch:
+    - cron: '0 */6 * * *' # Roda a cada 6 horas
+  workflow_dispatch: # Permite rodar manualmente
 
 permissions:
   contents: write
@@ -31,11 +28,10 @@ jobs:
     - name: Rodar o script de coleta
       run: python coletor.py
 
-    - name: Salvar dados (Commit e Push)
+    - name: Salvar dados
       run: |
         git config --global user.name 'Bot Preco'
         git config --global user.email 'bot@noreply.github.com'
         git add dados_precos.csv
-        # Só faz commit se houver mudanças
-        git commit -m "Atualização automática de preços" || exit 0
-        git push
+        # O comando abaixo só commita se houver mudanças, evitando erro se nada mudar
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Atualização automática de preços" && git push)
