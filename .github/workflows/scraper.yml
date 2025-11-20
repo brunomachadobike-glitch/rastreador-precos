@@ -29,8 +29,9 @@ jobs:
       - name: 4. Executar Robô
         run: python scraper.py
 
-      - name: 5. Salvar mudanças
+      - name: 5. Salvar mudanças (CSV e Foto)
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Atualização de Preços (Via Browser)"
-          file_pattern: "*.csv"
+          commit_message: "Atualização e Debug"
+          # AQUI: Adicionei *.png para ele salvar a foto
+          file_pattern: "*.csv *.png"
