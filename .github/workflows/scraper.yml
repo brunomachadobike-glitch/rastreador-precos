@@ -1,0 +1,41 @@
+name: Coletor de Preços Diário
+
+# Quando vai rodar?
+on:
+  schedule:
+    # Cron expression: Roda a cada 6 horas (pode ajustar)
+    - cron: '0 */6 * * *'
+  # Permite rodar manualmente clicando num botão (bom para testes)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Baixar o repositório
+      uses: actions/checkout@v3
+
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Instalar dependências
+      run: |
+        pip install -r requirements.txt
+
+    - name: Rodar o script de coleta
+      run: python coletor.py
+
+    - name: Salvar dados (Commit e Push)
+      run: |
+        git config --global user.name 'Bot Preco'
+        git config --global user.email 'bot@noreply.github.com'
+        git add dados_precos.csv
+        # Só faz commit se houver mudanças
+        git commit -m "Atualização automática de preços" || exit 0
+        git push
