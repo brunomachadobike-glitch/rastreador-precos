@@ -33,7 +33,16 @@ def pegar_preco(url):
     return None
 
 def main():
+# ... (dentro da def main(): )
     arquivo_csv = 'dados_precos.csv'
+    
+    # FORÇA A CRIAÇÃO DO ARQUIVO se ele não existir
+    if not os.path.exists(arquivo_csv):
+        df_inicial = pd.DataFrame(columns=['data', 'produto', 'preco'])
+        df_inicial.to_csv(arquivo_csv, index=False)
+        print("Arquivo inicial criado!")
+    
+    # ... (resto do código)
     
     # Carrega dados antigos se existirem
     if os.path.exists(arquivo_csv):
