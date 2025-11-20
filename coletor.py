@@ -7,9 +7,7 @@ import os
 # Lista de produtos para monitorar (Adicione quantos quiser)
 # DICA: Use links de busca específicos ou páginas de produtos
 PRODUTOS = [
-    {"nome": "Playstation 5", "url": "https://lista.mercadolivre.com.br/playstation-5"},
-    {"nome": "iPhone 15", "url": "https://lista.mercadolivre.com.br/iphone-15"},
-    # Adicione mais aqui...
+    {"nome": "Livro Teste", "url": "http://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"},
 ]
 
 def pegar_preco(url):
