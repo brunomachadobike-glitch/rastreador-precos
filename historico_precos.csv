@@ -2,3 +2,4 @@ data,produto,preco,status
 2025-11-20 22:07:52,,0.0,Falha: Layout mudou ou não encontrou elementos
 2025-11-20 22:12:05,Desconhecido,0.0,Falha: Preço não encontrado (Seletores falharam)
 2025-11-20 22:16:16,Desconhecido,0.0,Falha: Não foi possível achar o preço nem via Meta nem Visual.
+2025-11-20 22:22:09,PlayStation 5 Edição Digital (Slim),2999.0,Sucesso
