@@ -2,101 +2,110 @@ from playwright.sync_api import sync_playwright
 import pandas as pd
 from datetime import datetime
 import os
+import time
+import random
 
-# --- MUDANÇA DE ESTRATÉGIA ---
-# Vamos testar com Amazon que bloqueia menos IPs dos EUA
-# Se quiser tentar ML de novo, troque a URL, mas veja o print depois.
-URL_PRODUTO = "https://www.amazon.com.br/PlayStation-5-Slim-Edi%C3%A7%C3%A3o-Digital/dp/B0CL5KNB9M/"
+# --- SUA LISTA DE COMPRAS (Adicione quantos quiser) ---
+LISTA_DESEJOS = [
+    "https://www.amazon.com.br/PlayStation-5-Slim-Edi%C3%A7%C3%A3o-Digital/dp/B0CL5KNB9M/",
+    "https://www.amazon.com.br/Apple-iPhone-15-128-GB/dp/B0CHH5H7Z7/",
+    # Cole mais links aqui (sempre entre aspas e com vírgula no final)
+]
+
 ARQUIVO_DADOS = "historico_precos.csv"
 
-def pegar_dados_com_raio_x():
-    print(f"📸 Preparando para tirar foto de: {URL_PRODUTO}")
+def pegar_preco_amazon(page, url):
+    print(f"🔎 Acessando: {url}")
     
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport={"width": 1280, "height": 800} # Tamanho de tela de laptop
-            )
-            page = context.new_page()
-            
-            # Tenta acessar
-            page.goto(URL_PRODUTO, timeout=60000)
-            page.wait_for_timeout(5000) # Espera 5 segs
-            
-            # --- O RAIO-X ---
-            titulo_pagina = page.title()
-            print(f"🔎 Título da Página encontrada: {titulo_pagina}")
-            
-            # Tira um Print da tela (Fundamental para descobrirmos o erro)
-            page.screenshot(path="debug_screenshot.png")
-            print("📸 Screenshot salvo como 'debug_screenshot.png'")
-            
-            # LÓGICA DE PREÇO (Adaptada para Amazon e ML)
-            preco_final = 0.0
-            nome_final = ""
-            
-            # Tenta achar preço Amazon (Classe a-price-whole)
-            try:
-                elemento_amazon = page.locator('.a-price-whole').first
-                if elemento_amazon.is_visible():
-                    texto = elemento_amazon.inner_text()
-                    preco_final = float(texto.replace('.', '').replace(',', ''))
-                    nome_final = page.locator('#productTitle').inner_text().strip()
-            except:
-                pass
-            
-            # Tenta achar preço ML (caso você troque a URL de volta)
-            if preco_final == 0:
-                try:
-                    elemento_ml = page.locator('meta[itemprop="price"]').get_attribute("content")
-                    if elemento_ml:
-                        preco_final = float(elemento_ml)
-                        nome_final = "Produto ML"
-                except:
-                    pass
+        page.goto(url, timeout=60000)
+        # Espera aleatória para parecer humano
+        time.sleep(random.uniform(3, 6))
+        
+        titulo = page.title()
+        preco_final = 0.0
+        nome_produto = "Desconhecido"
 
-            browser.close()
-            
-            if preco_final > 0:
-                return {"produto": nome_final, "preco": preco_final}, None
-            else:
-                return None, f"Preço não achado. Título da pág: {titulo_pagina}"
+        # 1. Tenta pegar o Título do Produto
+        try:
+            nome_produto = page.locator('#productTitle').inner_text().strip()
+        except:
+            nome_produto = titulo[:30] # Pega o começo do título da página se falhar
+
+        # 2. Tenta pegar o Preço (O seletor clássico da Amazon)
+        # Procura por <span class="a-price-whole">
+        try:
+            elemento_preco = page.locator('.a-price-whole').first
+            if elemento_preco.is_visible():
+                texto = elemento_preco.inner_text()
+                # Remove pontos de milhar e troca vírgula por ponto se necessário
+                # Amazon BR usa formato 3.500,00 -> queremos 3500.00
+                preco_final = float(texto.replace('.', '').replace(',', ''))
+        except Exception as e:
+            print(f"⚠️ Erro ao ler seletor de preço: {e}")
+
+        return {
+            "produto": nome_produto,
+            "preco": preco_final,
+            "url": url
+        }
 
     except Exception as e:
-        return None, f"Erro Crítico: {str(e)}"
+        print(f"❌ Erro na página: {e}")
+        return None
 
 def main():
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    dados, erro = pegar_dados_com_raio_x()
-    
-    registro = {
-        "data": timestamp,
-        "produto": "N/A",
-        "preco": 0.0,
-        "status": "Erro"
-    }
-    
-    if dados:
-        registro["produto"] = dados["produto"]
-        registro["preco"] = dados["preco"]
-        registro["status"] = "Sucesso"
-        print(f"✅ SUCESSO! {dados['produto']} - R$ {dados['preco']}")
-    else:
-        registro["status"] = f"Falha: {erro}"
-        print(f"❌ {erro}")
+    novos_registros = []
 
-    # Salva CSV
+    print("🚀 Iniciando ronda de preços...")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        # Cria um contexto com tamanho de tela normal para evitar layouts mobile quebrados
+        context = browser.new_context(viewport={"width": 1280, "height": 800})
+        page = context.new_page()
+
+        for url in LISTA_DESEJOS:
+            dados = pegar_preco_amazon(page, url)
+            
+            registro = {
+                "data": timestamp,
+                "produto": "Erro",
+                "preco": 0.0,
+                "status": "Falha",
+                "link": url
+            }
+
+            if dados and dados['preco'] > 0:
+                registro["produto"] = dados["produto"]
+                registro["preco"] = dados["preco"]
+                registro["status"] = "Sucesso"
+                print(f"✅ {dados['produto']} -> R$ {dados['preco']}")
+            else:
+                print(f"⚠️ Não consegui preço para: {url}")
+
+            novos_registros.append(registro)
+            
+            # PAUSA DE SEGURANÇA ENTRE PRODUTOS
+            # Se você acessar 10 links em 1 segundo, a Amazon te bloqueia.
+            tempo_espera = random.uniform(5, 10)
+            print(f"⏳ Esperando {tempo_espera:.1f}s antes do próximo...")
+            time.sleep(tempo_espera)
+
+        browser.close()
+
+    # Salvar tudo no CSV
     if os.path.exists(ARQUIVO_DADOS):
         df = pd.read_csv(ARQUIVO_DADOS)
     else:
-        df = pd.DataFrame(columns=["data", "produto", "preco", "status"])
+        df = pd.DataFrame(columns=["data", "produto", "preco", "status", "link"])
     
-    df_novo = pd.DataFrame([registro])
-    df = pd.concat([df, df_novo], ignore_index=True)
-    df.to_csv(ARQUIVO_DADOS, index=False)
+    df_novos = pd.DataFrame(novos_registros)
+    df_final = pd.concat([df, df_novos], ignore_index=True)
+    
+    df_final.to_csv(ARQUIVO_DADOS, index=False)
+    print("💾 CSV Atualizado com sucesso!")
 
 if __name__ == "__main__":
     main()
