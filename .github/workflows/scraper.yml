@@ -31,7 +31,7 @@ jobs:
       - name: Rodar o script de coleta
         run: python coletor.py
 
-- name: Salvar dados
+      - name: Salvar dados
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
