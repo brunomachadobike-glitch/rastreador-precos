@@ -1,9 +1,9 @@
-name: Robô Rastreador
+name: Robô Rastreador (Playwright)
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Roda a cada 6h
-  workflow_dispatch:      # Permite rodar no botão manual
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,15 +21,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 3. Instalar bibliotecas
-        run: pip install -r requirements.txt
+      - name: 3. Instalar bibliotecas e Navegadores
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
 
       - name: 4. Executar Robô
         run: python scraper.py
 
-      - name: 5. Salvar mudanças automaticamente
-        # Esta Action pronta evita o erro 128 e o erro de pathspec
+      - name: 5. Salvar mudanças
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Atualização Automática de Preços"
+          commit_message: "Atualização de Preços (Via Browser)"
           file_pattern: "*.csv"
