@@ -31,23 +31,22 @@ jobs:
       - name: Rodar o script de coleta
         run: python coletor.py
 
-      - name: Salvar dados
+- name: Salvar dados
         env:
-          # Pegamos o token nativo do GitHub
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name 'Bot Preco'
           git config --global user.email 'bot@noreply.github.com'
           
-          # --- O TRUQUE ESTÁ AQUI ---
-          # Forçamos a URL a usar o token para autenticar
+          # Configura a URL com token (mantendo a segurança que fizemos antes)
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
           
-          git add dados_precos.csv
-          
-          # Verifica se tem algo para commitar antes de tentar
-          # Se não tiver mudança, ele imprime "Nada novo" e não dá erro
-          git commit -m "Atualização automática de preços" || echo "⚠️ Nada novo para commitar"
-          
-          # Empurra para a main
-          git push origin HEAD:main
+          # --- A CORREÇÃO ESTÁ AQUI ---
+          # Verifica se o arquivo existe antes de tentar adicionar
+          if [ -f dados_precos.csv ]; then
+            git add dados_precos.csv
+            git commit -m "Atualização automática de preços" || echo "⚠️ Nada novo para commitar"
+            git push origin HEAD:main
+          else
+            echo "⚠️ O arquivo dados_precos.csv não foi gerado pelo Python. O scraping provavelmente falhou."
+          fi
