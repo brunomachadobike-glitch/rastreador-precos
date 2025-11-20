@@ -3,74 +3,80 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime
 import os
+import random
+import time
 
-# Lista de produtos para monitorar (Adicione quantos quiser)
-# DICA: Use links de busca específicos ou páginas de produtos
-PRODUTOS = [
-    {"nome": "Livro Teste", "url": "http://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"},
-]
+# Vamos tentar pegar o PS5. 
+# Se falhar, o script NÃO vai quebrar, ele vai registrar o erro.
+URL_ALVO = "https://lista.mercadolivre.com.br/playstation-5"
+ARQUIVO_DADOS = "historico_precos.csv"
 
-def pegar_preco(url):
+def pegar_dados():
+    # Headers para parecer um navegador real
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
     }
+    
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(URL_ALVO, headers=headers, timeout=15)
+        if response.status_code != 200:
+            return None, f"Bloqueio ou Erro: {response.status_code}"
+            
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Tentativa de pegar o primeiro item da lista do ML
+        # Tenta achar o primeiro item da lista
         item = soup.find('li', {'class': 'ui-search-layout__item'})
         if item:
-            # Preço
-            price_container = item.find('span', {'class': 'andes-money-amount__fraction'})
-            if price_container:
-                price = float(price_container.text.replace('.', '').replace(',', '.'))
-                return price
+            # Tenta achar o preço
+            preco_obj = item.find('span', {'class': 'andes-money-amount__fraction'})
+            titulo_obj = item.find('h2')
+            
+            if preco_obj and titulo_obj:
+                preco = float(preco_obj.text.replace('.', '').replace(',', '.'))
+                titulo = titulo_obj.text.strip()
+                return {"produto": titulo, "preco": preco}, None
+                
+        return None, "Layout mudou ou não encontrou elementos"
+        
     except Exception as e:
-        print(f"Erro ao ler {url}: {e}")
-    return None
+        return None, f"Erro exceção: {str(e)}"
 
 def main():
-# ... (dentro da def main(): )
-    arquivo_csv = 'dados_precos.csv'
-    
-    # FORÇA A CRIAÇÃO DO ARQUIVO se ele não existir
-    if not os.path.exists(arquivo_csv):
-        df_inicial = pd.DataFrame(columns=['data', 'produto', 'preco'])
-        df_inicial.to_csv(arquivo_csv, index=False)
-        print("Arquivo inicial criado!")
-    
-    # ... (resto do código)
-    
-    # Carrega dados antigos se existirem
-    if os.path.exists(arquivo_csv):
-        df = pd.read_csv(arquivo_csv)
-    else:
-        df = pd.DataFrame(columns=['data', 'produto', 'preco'])
-
-    novos_dados = []
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # 1. Tenta coletar
+    dados, erro = pegar_dados()
+    
+    registro = {
+        "data": timestamp,
+        "produto": "N/A",
+        "preco": 0.0,
+        "status": "Erro"
+    }
+    
+    if dados:
+        registro["produto"] = dados["produto"]
+        registro["preco"] = dados["preco"]
+        registro["status"] = "Sucesso"
+        print(f"✅ Sucesso! Preço: {dados['preco']}")
+    else:
+        registro["status"] = f"Falha: {erro}"
+        print(f"⚠️ Falha na coleta: {erro}")
 
-    print(f"Iniciando coleta: {timestamp}")
-
-    for item in PRODUTOS:
-        preco_atual = pegar_preco(item['url'])
-        if preco_atual:
-            print(f"Preço {item['nome']}: R$ {preco_atual}")
-            novos_dados.append({
-                'data': timestamp,
-                'produto': item['nome'],
-                'preco': preco_atual
-            })
-        else:
-            print(f"Não consegui pegar preço de {item['nome']}")
-
-    # Salva tudo
-    if novos_dados:
-        df_novo = pd.DataFrame(novos_dados)
-        df_final = pd.concat([df, df_novo], ignore_index=True)
-        df_final.to_csv(arquivo_csv, index=False)
-        print("Arquivo CSV atualizado com sucesso.")
+    # 2. Carrega ou Cria o DataFrame
+    if os.path.exists(ARQUIVO_DADOS):
+        df = pd.read_csv(ARQUIVO_DADOS)
+    else:
+        df = pd.DataFrame(columns=["data", "produto", "preco", "status"])
+    
+    # 3. Salva (Isso garante que o arquivo sempre exista/atualize)
+    # Convertendo o registro (dict) para DataFrame antes de concatenar
+    novo_dado_df = pd.DataFrame([registro])
+    df = pd.concat([df, novo_dado_df], ignore_index=True)
+    
+    df.to_csv(ARQUIVO_DADOS, index=False)
+    print("💾 Arquivo CSV salvo com sucesso.")
 
 if __name__ == "__main__":
     main()
